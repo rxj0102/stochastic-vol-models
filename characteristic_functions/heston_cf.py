@@ -102,6 +102,11 @@ class HestonCharacteristicFunction:
         flipped, where :math:`b = \kappa - \rho \xi i u`.
         """
         form = formulation or self.formulation
+        if min(theta, xi, V0) <= 0.0:
+            raise ValueError(
+                "theta, xi and V0 must be strictly positive in the Heston CF; "
+                f"got theta={theta}, xi={xi}, V0={V0}"
+            )
         # Preserve complex inputs (Lewis / Carr-Madan / MGF pass complex u).
         u = np.asarray(u) + 0j
         iu = 1j * u

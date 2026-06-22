@@ -111,10 +111,20 @@ class COSMethodPricer:
         )
         c2 = HestonCharacteristicFunction._c2(T, kappa, theta, xi, rho, V0)
         c4 = HestonCharacteristicFunction._c4(T, kappa, theta, xi, rho, V0)
-        c2 = max(c2, 1e-10)
+        # Fang-Oosterlee (2008) use |c2| and |c4| so the interval is well
+        # defined even when the fourth cumulant turns slightly negative from
+        # the finite-difference estimate at short maturities.
+        half_width = L * np.sqrt(abs(c2) + np.sqrt(abs(c4)))
 
-        a = c1 - L * np.sqrt(c2 + np.sqrt(max(c4, 0.0)))
-        b = c1 + L * np.sqrt(c2 + np.sqrt(max(c4, 0.0)))
+        a = c1 - half_width
+        b = c1 + half_width
+
+        # Degenerate interval (near-zero variance / near-expiry): the COS sum
+        # is ill-conditioned, fall back to the Black-Scholes price directly.
+        if b - a < 1e-6:
+            from utils.statistics import bsm_price
+
+            return bsm_price(S0, K, T, r, q, np.sqrt(max(V0, 1e-12)), option_type)
 
         k_idx = np.arange(N)
         omega = k_idx * np.pi / (b - a)

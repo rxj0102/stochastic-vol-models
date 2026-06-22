@@ -67,6 +67,12 @@ class CarrMadanPricer:
         :math:`k_j = -N\lambda/2 + j\lambda`.  Simpson weights are applied to
         the integrand for higher-order accuracy.
         """
+        if alpha <= 0:
+            raise ValueError(
+                f"alpha must be > 0 for call-side Carr-Madan pricing, got {alpha}"
+            )
+        if N & (N - 1) != 0:
+            raise ValueError(f"N must be a power of two for the FFT, got {N}")
         kappa, theta, xi, rho, V0 = (
             params.kappa,
             params.theta,
@@ -126,6 +132,10 @@ class CarrMadanPricer:
         """
         spline = self._smile_spline(S0, T, r, q, params, alpha, N, eta)
         call = float(spline(K))
+        # Floor at the no-arbitrage lower bound to clean up spline artefacts
+        # in the deep wings (the FFT smile can interpolate slightly below it).
+        call_lb = max(S0 * np.exp(-q * T) - K * np.exp(-r * T), 0.0)
+        call = max(call, call_lb)
         if option_type == "call":
             return max(call, 0.0)
         # put-call parity: P = C - S0 e^{-qT} + K e^{-rT}

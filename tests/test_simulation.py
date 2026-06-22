@@ -99,3 +99,26 @@ def test_leverage_effect_recovers_rho(base_params, market):
     )
     emp = CorrelationEffects.leverage_effect_from_paths(S, V)
     assert abs(emp - base_params.rho) < 0.05
+
+
+def test_bk_exact_lower_variance_bias_than_euler(market):
+    """Broadie-Kaya samples V_T from the exact CIR law; its terminal variance
+    matches theory more closely than full-truncation Euler, whose truncation
+    distorts the variance (the mean is nearly unbiased for both)."""
+    from models.heston import HestonParams
+    from simulation.heston_euler import HestonEulerSimulator
+    from simulation.heston_exact import BroadieKayaSimulator
+
+    # Feller-violating set so Euler's truncation bias is pronounced.
+    p = HestonParams(kappa=1.0, theta=0.04, xi=0.9, rho=-0.7, V0=0.04)
+    T, r, q = market["T"], market["r"], market["q"]
+    ekt = np.exp(-p.kappa * T)
+    var_theory = (
+        p.V0 * p.xi**2 / p.kappa * ekt * (1 - ekt)
+        + p.theta * p.xi**2 / (2 * p.kappa) * (1 - ekt) ** 2
+    )
+    _, Vb = BroadieKayaSimulator().simulate(100, p.V0, T, r, q, p, 60_000, 1, seed=5)
+    _, Ve = HestonEulerSimulator().simulate(100, p.V0, T, r, q, p, 60_000, 50, seed=5)
+    bias_bk = abs(Vb[:, -1].var() - var_theory)
+    bias_eu = abs(Ve[:, -1].var() - var_theory)
+    assert bias_bk < bias_eu

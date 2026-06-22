@@ -53,3 +53,30 @@ def test_atm_vol_matches_model(base_params, market):
     F = S0 * np.exp((r - q) * T)
     atm = surf.iv_at(F, T)
     assert 0.1 < atm < 0.4
+
+
+# --- Additional coverage (audit remediation) -------------------------------
+
+
+def test_safe_iv_above_maximum_returns_nan():
+    inv = BSMInverter()
+    # Call worth more than the discounted spot is arbitrageable -> NaN.
+    iv = inv.safe_implied_vol(150.0, 100.0, 90.0, 1.0, 0.0, 0.0, "call")
+    assert np.isnan(iv)
+
+
+def test_batch_inversion_performance():
+    import time
+
+    inv = BSMInverter()
+    rng = np.random.default_rng(0)
+    n = 1000
+    strikes = rng.uniform(80, 120, n)
+    prices = np.array(
+        [bsm_price(100, float(k), 1.0, 0.02, 0.0, 0.2, "call") for k in strikes]
+    )
+    t0 = time.perf_counter()
+    ivs = inv.implied_vol_batch(prices, 100, strikes, 1.0, 0.02, 0.0, "call")
+    elapsed = time.perf_counter() - t0
+    assert np.nanmax(np.abs(ivs - 0.2)) < 1e-4
+    assert elapsed < 2.0

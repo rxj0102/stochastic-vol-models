@@ -86,3 +86,47 @@ def test_fft_alpha_invariance(base_params, market):
         for a in (1.1, 1.5, 2.0, 2.5)
     ]
     assert max(prices) - min(prices) < 1e-3
+
+
+# --- Robustness guards (added in audit remediation) ------------------------
+
+
+def test_carr_madan_rejects_nonpositive_alpha(base_params, market):
+    import pytest
+
+    cm = CarrMadanPricer()
+    S0, T, r, q = market["S0"], market["T"], market["r"], market["q"]
+    for bad_alpha in (0.0, -0.5):
+        with pytest.raises(ValueError):
+            cm.price(S0, 100.0, T, r, q, base_params, "call", alpha=bad_alpha)
+
+
+def test_carr_madan_rejects_non_power_of_two_N(base_params, market):
+    import pytest
+
+    cm = CarrMadanPricer()
+    with pytest.raises(ValueError):
+        cm.price_fft(
+            market["S0"], market["T"], market["r"], market["q"], base_params, N=1000
+        )
+
+
+def test_cf_rejects_negative_variance_params(market):
+    import pytest
+
+    from characteristic_functions.heston_cf import HestonCharacteristicFunction
+
+    cf = HestonCharacteristicFunction()
+    with pytest.raises(ValueError):
+        cf.cf(
+            np.array([1.0]),
+            market["S0"],
+            -0.04,
+            market["T"],
+            market["r"],
+            market["q"],
+            2.0,
+            0.04,
+            0.5,
+            -0.7,
+        )

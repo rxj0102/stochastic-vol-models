@@ -37,6 +37,17 @@ class SABRParams(ModelParams):
     rho: float
     nu: float
 
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.beta <= 1.0:
+            raise ValueError(
+                f"SABR beta must lie in [0, 1] (0=normal, 0.5=equity, "
+                f"1=lognormal), got {self.beta}"
+            )
+        if self.alpha <= 0 or self.nu <= 0:
+            raise ValueError("SABR alpha and nu must be strictly positive")
+        if not -1.0 < self.rho < 1.0:
+            raise ValueError("SABR rho must lie in (-1, 1)")
+
 
 def hagan_lognormal_vol(
     F: float, K: np.ndarray, T: float, alpha: float, beta: float, rho: float, nu: float
