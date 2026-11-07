@@ -1,5 +1,7 @@
 # stochastic-vol-models
 
+[![CI](https://github.com/rxj0102/stochastic-vol-models/actions/workflows/ci.yml/badge.svg)](https://github.com/rxj0102/stochastic-vol-models/actions/workflows/ci.yml)
+
 **An institutional-grade stochastic volatility modeling engine.**
 
 A comprehensive implementation of the **Heston (1993)** model with full
