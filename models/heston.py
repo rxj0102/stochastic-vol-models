@@ -194,10 +194,14 @@ class HestonModel(StochVolModel):
         return out
 
     def simulate(
-        self, S0, V0, T, n_paths, n_steps, seed=None
+        self, S0, V0, T, n_paths, n_steps, seed=None, r=0.0, q=0.0
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Simulate spot/variance paths with the QE scheme."""
+        """Simulate spot/variance paths with the QE scheme.
+
+        r and q are the risk-free rate and dividend yield. They default to
+        zero (previously hard-coded), which gives a driftless spot.
+        """
         from simulation.heston_qe import HestonQESimulator
 
         sim = HestonQESimulator()
-        return sim.simulate(S0, V0, T, 0.0, 0.0, self._p, n_paths, n_steps, seed)
+        return sim.simulate(S0, V0, T, r, q, self._p, n_paths, n_steps, seed)
