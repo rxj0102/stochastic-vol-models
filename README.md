@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/rxj0102/stochastic-vol-models/actions/workflows/ci.yml/badge.svg)](https://github.com/rxj0102/stochastic-vol-models/actions/workflows/ci.yml)
 
-**An institutional-grade stochastic volatility modeling engine.**
+**A stochastic volatility modelling library: Heston, SABR and related models, with Fourier and Monte Carlo pricing and calibration.**
 
 A comprehensive implementation of the **Heston (1993)** model with full
 characteristic-function machinery, three independent **Fourier pricing** engines
 (Carr-Madan FFT, COS, Lewis), **implied-volatility surface calibration**,
 **smile/skew analytics**, low-bias **variance-process simulation**, and
-semi-analytical **Heston Greeks** — packaged as a Python library, a live
+semi-analytical **Heston Greeks** - packaged as a Python library, a live
 **Streamlit** dashboard, and an SSRN-ready research paper.
 
 [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
@@ -57,7 +57,7 @@ model = HestonModel(params)
 print(model.feller_ratio)        # 2*kappa*theta / xi^2
 print(model.long_run_vol)        # sqrt(theta)
 
-# Price a 1Y ATM call three independent ways — they agree to < 1 bp of IV.
+# Price a 1Y ATM call three independent ways - they agree to < 1 bp of IV.
 price = COSMethodPricer().price(S0=100, K=100, T=1.0, r=0.02, q=0.0, params=params)
 print(f"COS call price: {price:.4f}")
 ```
@@ -137,7 +137,7 @@ python paper/generate_paper.py   # writes paper/stochastic_volatility_heston.pdf
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The bundled data are synthetic and for
+MIT - see [LICENSE](LICENSE). The bundled data are synthetic and for
 demonstration only; nothing here is investment advice.
 
 ## Topics
