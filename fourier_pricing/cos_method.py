@@ -19,6 +19,8 @@ __all__ = ["COSMethodPricer", "DEFAULT_N_COS"]
 
 DEFAULT_N_COS = 128
 _DEFAULT_L = 12.0
+_MAX_N_COS = 8192
+_COS_TOL = 1e-8  # relative to the strike
 
 
 class COSMethodPricer:
@@ -78,6 +80,7 @@ class COSMethodPricer:
         option_type: str = "call",
         N: int = DEFAULT_N_COS,
         L: float = _DEFAULT_L,
+        adaptive: bool = True,
     ) -> float:
         r"""Price a single European option.
 
@@ -92,6 +95,10 @@ class COSMethodPricer:
             Number of cosine terms.
         L : float, optional
             Truncation-range multiplier for the cumulant interval.
+        adaptive : bool, optional
+            Double the number of terms from ``N`` until two successive prices agree to
+            1e-8 of the strike (up to 8192 terms). Pass False to use exactly ``N`` terms,
+            for example to study convergence.
 
         Returns
         -------
@@ -126,20 +133,33 @@ class COSMethodPricer:
 
             return bsm_price(S0, K, T, r, q, np.sqrt(max(V0, 1e-12)), option_type)
 
-        k_idx = np.arange(N)
-        omega = k_idx * np.pi / (b - a)
+        # Calls are priced as puts plus put-call parity. The call payoff coefficients grow
+        # like e^b, so with a wide truncation range (heavy tails, long maturities) they
+        # amplify truncation error without bound; Fang and Oosterlee (2008) recommend
+        # pricing puts for this reason. The number of terms then doubles from N until two
+        # successive prices agree, because a wide range needs more terms than the default.
+        def put_price(n_terms: int) -> float:
+            k_idx = np.arange(n_terms)
+            omega = k_idx * np.pi / (b - a)
+            # phi_x(u) = E[e^{i u (ln S_T - ln K)}] = cf(u) * e^{-i u ln K}.
+            phi = self.cf.cf(omega, S0, V0, T, r, q, kappa, theta, xi, rho)
+            phi = phi * np.exp(-1j * omega * np.log(K))
+            Vk = self._payoff_coeffs(k_idx, a, b, "put")
+            Fk = (phi * np.exp(-1j * omega * a)).real
+            Fk[0] *= 0.5  # prime on the sum
+            return float(K * np.exp(-r * T) * np.sum(Fk * Vk))
 
-        # Characteristic function of x = ln(S_T) - ln K, evaluated at omega.
-        # phi_x(u) = E[e^{i u (ln S_T - ln K)}] = cf(u) * e^{-i u ln K}.
-        phi = self.cf.cf(omega, S0, V0, T, r, q, kappa, theta, xi, rho)
-        phi = phi * np.exp(-1j * omega * np.log(K))
-
-        Vk = self._payoff_coeffs(k_idx, a, b, option_type)
-        Fk = (phi * np.exp(-1j * omega * a)).real
-        Fk[0] *= 0.5  # prime on the sum
-
-        price = K * np.exp(-r * T) * np.sum(Fk * Vk)
-        return float(price)
+        n_terms, put = N, put_price(N)
+        while adaptive and n_terms < _MAX_N_COS:
+            n_terms *= 2
+            nxt = put_price(n_terms)
+            converged = abs(nxt - put) <= _COS_TOL * K
+            put = nxt
+            if converged:
+                break
+        if option_type == "put":
+            return put
+        return float(put + S0 * np.exp(-q * T) - K * np.exp(-r * T))
 
     def price_surface(
         self, S0, strikes, maturities, r, q, params, option_type="call", N=DEFAULT_N_COS
@@ -168,7 +188,7 @@ class COSMethodPricer:
         if N_range is None:
             N_range = [8, 16, 32, 64, 128, 256, 512]
         prices = np.array(
-            [self.price(S0, K, T, r, q, params, option_type, N=n) for n in N_range]
+            [self.price(S0, K, T, r, q, params, option_type, N=n, adaptive=False) for n in N_range]
         )
         ref = self.price(S0, K, T, r, q, params, option_type, N=1024)
         return {
