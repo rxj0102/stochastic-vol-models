@@ -75,8 +75,11 @@ def test_batch_inversion_performance():
     prices = np.array(
         [bsm_price(100, float(k), 1.0, 0.02, 0.0, 0.2, "call") for k in strikes]
     )
-    t0 = time.perf_counter()
+    # Process CPU time, not wall time: on a busy runner wall time for this batch
+    # went from about 0.9 s to 3.8 to 5.0 s and failed the bound, while CPU time
+    # stayed between 0.87 and 0.99 s. The bound still catches a real slowdown.
+    t0 = time.process_time()
     ivs = inv.implied_vol_batch(prices, 100, strikes, 1.0, 0.02, 0.0, "call")
-    elapsed = time.perf_counter() - t0
+    elapsed = time.process_time() - t0
     assert np.nanmax(np.abs(ivs - 0.2)) < 1e-4
     assert elapsed < 2.0
