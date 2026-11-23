@@ -122,3 +122,23 @@ def test_bk_exact_lower_variance_bias_than_euler(market):
     bias_bk = abs(Vb[:, -1].var() - var_theory)
     bias_eu = abs(Ve[:, -1].var() - var_theory)
     assert bias_bk < bias_eu
+
+
+def test_qe_martingale_correction_removes_forward_bias():
+    """Andersen (2008) corrected drift: E[S_T] equals the forward even with coarse steps."""
+    import numpy as np
+
+    from models.heston import HestonParams
+    from simulation.heston_qe import HestonQESimulator
+
+    p = HestonParams(kappa=1.5768, theta=0.0398, xi=0.5751, rho=-0.5711, V0=0.0175)
+    means = {}
+    for corrected in (False, True):
+        sim = HestonQESimulator(martingale_correction=corrected)
+        x = np.concatenate(
+            [sim.simulate(100.0, p.V0, 5.0, 0.0, 0.0, p, 200_000, 20, seed=s)[0][:, -1] for s in range(4)]
+        )
+        means[corrected] = (x.mean() - 100.0, x.std() / np.sqrt(len(x)))
+    bias, se = means[True]
+    assert abs(bias) < 3.0 * se
+    assert means[False][0] > bias
