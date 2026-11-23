@@ -30,9 +30,14 @@ class HestonQESimulator:
         drift integral.  ``(0.5, 0.5)`` (default) is the central scheme.
     """
 
-    def __init__(self, gamma1: float = 0.5, gamma2: float = 0.5) -> None:
+    def __init__(
+        self, gamma1: float = 0.5, gamma2: float = 0.5, martingale_correction: bool = True
+    ) -> None:
         self.gamma1 = gamma1
         self.gamma2 = gamma2
+        # Andersen's corrected drift makes the discounted spot an exact martingale
+        # step by step; False keeps the plain K0 of his equation (33).
+        self.martingale_correction = martingale_correction
 
     def simulate(
         self,
@@ -74,6 +79,7 @@ class HestonQESimulator:
         K2 = self.gamma2 * dt * (kappa * rho / xi - 0.5) + rho / xi
         K3 = self.gamma1 * dt * (1.0 - rho**2)
         K4 = self.gamma2 * dt * (1.0 - rho**2)
+        A = K2 + 0.5 * K4
 
         S = np.empty((n_paths, n_steps + 1))
         V = np.empty((n_paths, n_steps + 1))
@@ -89,6 +95,7 @@ class HestonQESimulator:
 
             Uv = rng.random(n_paths)
             v_next = np.empty(n_paths)
+            k0 = np.empty(n_paths)
 
             # --- Quadratic branch (psi <= PSI_C) ---
             quad = psi <= PSI_C
@@ -102,6 +109,10 @@ class HestonQESimulator:
                 a = m[quad] / (1.0 + b2)
                 Zv = norm.ppf(Uv[quad])
                 v_next[quad] = a * (np.sqrt(b2) + Zv) ** 2
+                # Andersen (2008) martingale correction: E[exp(A v_next)] for the
+                # quadratic branch is exp(A b2 a / (1 - 2 A a)) / sqrt(1 - 2 A a).
+                aA = np.minimum(A * a, 0.5 - 1e-12)
+                k0[quad] = -A * b2 * a / (1.0 - 2.0 * aA) + 0.5 * np.log(1.0 - 2.0 * aA)
 
             # --- Exponential branch (psi > PSI_C) ---
             expo = ~quad
@@ -115,13 +126,16 @@ class HestonQESimulator:
                     np.log((1.0 - p) / np.maximum(1.0 - u, 1e-300)) / beta,
                 )
                 v_next[expo] = vv
+                # exponential branch: E[exp(A v_next)] = p + beta (1 - p) / (beta - A)
+                bA = np.maximum(beta, A + 1e-12)
+                k0[expo] = -np.log(p + bA * (1.0 - p) / (bA - A))
 
             # Correlated normal for the spot innovation.
             Zs = rng.standard_normal(n_paths)
             logS = (
                 logS
                 + (r - q) * dt
-                + K0
+                + (k0 - (K1 + 0.5 * K3) * v if self.martingale_correction else K0)
                 + K1 * v
                 + K2 * v_next
                 + np.sqrt(np.maximum(K3 * v + K4 * v_next, 0.0)) * Zs
