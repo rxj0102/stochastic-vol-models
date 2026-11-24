@@ -62,7 +62,9 @@ price = COSMethodPricer().price(S0=100, K=100, T=1.0, r=0.02, q=0.0, params=para
 print(f"COS call price: {price:.4f}")
 ```
 
-### Calibrate to a market surface
+### Calibrate to an implied volatility surface
+
+The bundled `data/sample_surface.csv` is a synthetic SPX-style surface, not market quotes. The same call takes a real surface in the same format.
 
 ```python
 from calibration.market_data import MarketIVSurface
@@ -95,7 +97,7 @@ implied_vol/             Surface, smile analytics, BSM inversion, arbitrage chec
 risk/                    Heston Greeks, P&L attribution, vol-aware VaR
 diagnostics/             Variance process, correlation, moment matching, comparison
 utils/                   Plotly chart builders, statistics helpers
-tests/                   33 pytest tests across the full stack
+tests/                   51 pytest tests across the full stack
 data/                    Synthetic SPX-style sample surface
 paper/                   ReportLab SSRN-ready PDF generator
 app.py                   Streamlit dashboard
@@ -144,7 +146,7 @@ pytest -q                          # runs the test suite
 
 ### Runtime
 
-The test suite (43 tests) finishes in about 3 minutes on the machine above, including any data downloads it triggers.
+The test suite (51 tests) finishes in about 3 minutes on the machine above, including any data downloads it triggers.
 
 ### Citation
 
